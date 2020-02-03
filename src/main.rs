@@ -38,7 +38,6 @@ async fn run(username: String, dry: bool) -> Result<()> {
         account_info_mutex: Mutex::new(()),
     };
     let comments = client.comments().await?;
-    dbg!(comments);
     Ok(())
 }
 
