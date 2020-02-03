@@ -120,12 +120,12 @@ pub struct Post {
 
 #[derive(Deserialize, Debug)]
 pub struct Comment {
-    saved: bool,
-    name: String,
-    created_utc: f32,
-    subreddit: String,
-    score: i32,
-    body: String,
+    pub saved: bool,
+    pub name: String,
+    pub created_utc: f32,
+    pub subreddit: String,
+    pub score: i32,
+    pub body: String,
 }
 
 pub struct RedditClient {

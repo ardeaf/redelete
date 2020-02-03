@@ -38,6 +38,9 @@ async fn run(username: String, dry: bool) -> Result<()> {
         account_info_mutex: Mutex::new(()),
     };
     let comments = client.comments().await?;
+    for comment in comments {
+        println!("{}", comment.body)
+    }
     Ok(())
 }
 
