@@ -7,6 +7,8 @@
 
 It is 80% there. Most of the logic is done.
 
+All pull requests, suggestions, feedback is welcome.
+
 #### Still needs:
 * Rate limiting logic, since reddit rate limits at 60 req/min
 * Currently always dry runs, since the rate limiting hasn't been implemented yet
