@@ -24,7 +24,7 @@ fn config_file_path() -> PathBuf {
     config_dir
 }
 #[derive(Serialize, Deserialize, Debug)]
-struct Config {
+pub struct Config {
     accounts: Vec<AccountInfo>,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -33,8 +33,8 @@ pub struct AccountInfo {
     pub username: String,
     pub token_expires: u64,
     pub excluded_subreddits: Option<Vec<String>>,
-    pub minimum_score: Option<u32>,
-    pub max_hours: Option<u32>,
+    pub minimum_score: Option<i32>,
+    pub max_hours: Option<u64>,
 }
 
 #[cfg_attr(tarpaulin, skip)]
@@ -55,7 +55,7 @@ fn save_config(config: Config) -> Result<()> {
     Ok(())
 }
 
-fn get_config_and_account_info(username: &str) -> Result<(Config, AccountInfo)> {
+pub fn get_config_and_account_info(username: &str) -> Result<(Config, AccountInfo)> {
     let mut config = get_config()?;
     let accounts = config.accounts.clone();
     let account_info = accounts
@@ -111,14 +111,14 @@ pub fn set_excluded_subreddits(username: String, excluded_subreddits: Vec<String
     Ok(())
 }
 
-pub fn set_max_hours(username: String, max_hours: u32) -> Result<()> {
+pub fn set_max_hours(username: String, max_hours: u64) -> Result<()> {
     let (mut c, mut ai) = get_config_and_account_info(&username)?;
     ai.max_hours = Some(max_hours);
     c.accounts.push(ai.clone());
     Ok(save_config(c)?)
 }
 
-pub fn set_minimum_score(username: String, score: u32) -> Result<()> {
+pub fn set_minimum_score(username: String, score: i32) -> Result<()> {
     let (mut c, mut ai) = get_config_and_account_info(&username)?;
     ai.minimum_score = Some(score);
     c.accounts.push(ai.clone());
@@ -220,7 +220,7 @@ pub fn read_config_account_info(username: &str) -> Option<AccountInfo> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     #[test]
     #[cfg(not(target_os = "windows"))]
@@ -245,7 +245,7 @@ mod tests {
         )
     }
 
-    fn token() -> OAuthToken {
+    pub fn token() -> OAuthToken {
         OAuthToken {
             access_token: "ACCESS_TOKEN".into(),
             token_type: "bearer".into(),
@@ -254,10 +254,10 @@ mod tests {
             refresh_token: Some("REFRESH_TOKEN".into()),
         }
     }
-    fn test_username() -> String {
+    pub fn test_username() -> String {
         "TestUser".into()
     }
-    fn fresh_account_info() -> AccountInfo {
+    pub fn fresh_account_info() -> AccountInfo {
         AccountInfo {
             username: test_username(),
             token: token(),
@@ -272,7 +272,7 @@ mod tests {
         }
     }
 
-    fn account_info() -> AccountInfo {
+    pub fn account_info() -> AccountInfo {
         AccountInfo {
             username: test_username(),
             token: token(),

@@ -105,24 +105,69 @@ impl RedditParams {
         vec
     }
 }
+#[derive(Debug)]
+pub struct DeletionInfo<'di> {
+    pub saved: bool,
+    pub name: &'di str,
+    pub created_utc: f64,
+    pub subreddit: &'di str,
+    pub score: i32,
+    pub selftext: Option<&'di str>,
+    pub url: Option<&'di str>,
+    pub title: Option<&'di str>,
+    pub body: Option<&'di str>,
+}
 
+pub trait RedditPost {
+    fn deletion_info(&self) -> DeletionInfo;
+}
+impl RedditPost for Post {
+    fn deletion_info(&self) -> DeletionInfo {
+        DeletionInfo {
+            saved: self.saved,
+            name: &self.name,
+            created_utc: self.created_utc,
+            subreddit: &self.subreddit,
+            score: self.score,
+            selftext: Some(&self.selftext),
+            url: Some(&self.url),
+            title: Some(&self.title),
+            body: None,
+        }
+    }
+}
+impl RedditPost for Comment {
+    fn deletion_info(&self) -> DeletionInfo {
+        DeletionInfo {
+            saved: self.saved,
+            name: &self.name,
+            created_utc: self.created_utc,
+            subreddit: &self.subreddit,
+            score: self.score,
+            selftext: None,
+            url: None,
+            title: None,
+            body: Some(&self.body),
+        }
+    }
+}
 #[derive(Deserialize, Debug)]
 pub struct Post {
-    saved: bool,
-    name: String,
-    created_utc: f32,
-    subreddit: String,
-    score: i32,
-    selftext: String,
-    url: String,
-    title: String,
+    pub saved: bool,
+    pub name: String,
+    pub created_utc: f64,
+    pub subreddit: String,
+    pub score: i32,
+    pub selftext: String,
+    pub url: String,
+    pub title: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Comment {
     pub saved: bool,
     pub name: String,
-    pub created_utc: f32,
+    pub created_utc: f64,
     pub subreddit: String,
     pub score: i32,
     pub body: String,

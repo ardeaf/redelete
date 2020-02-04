@@ -10,6 +10,7 @@ mod oauth_server;
 mod reddit_api;
 use clap::{App, Arg};
 use custom_error::custom_error;
+use std::time;
 
 #[cfg(test)]
 mod test_data;
@@ -26,6 +27,7 @@ const DRYRUN: &'static str = "dry_run";
 
 custom_error! {pub RedeleteError
     RedditApiError{ source: reddit_api::RedditApiError } = "Reddit API Error",
+    ConfigError{ source: config::ConfigError } = "Config Error",
     RunError = "Unable to run"
 }
 
@@ -38,10 +40,47 @@ async fn run(username: String, dry: bool) -> Result<()> {
         account_info_mutex: Mutex::new(()),
     };
     let comments = client.comments().await?;
+    let (_, ai) = config::get_config_and_account_info(&client.username)?;
     for comment in comments {
-        println!("{}", comment.body)
+        let mut printed = false;
+        if check_should_delete(&ai, &comment) {
+            if !printed {
+                printed = true;
+                println!("Deleting:")
+            }
+            println!("/r/{}: {}", &comment.subreddit, &comment.body);
+            if !dry {}
+        }
     }
     Ok(())
+}
+
+fn check_should_delete<T: reddit_api::RedditPost>(ai: &config::AccountInfo, comment: &T) -> bool {
+    let info = comment.deletion_info();
+    let age: u64 = time::SystemTime::now()
+        .duration_since(time::UNIX_EPOCH + time::Duration::from_secs_f64(info.created_utc.clone()))
+        .unwrap()
+        .as_secs()
+        / 3600;
+    if ai.max_hours.is_none() && ai.minimum_score.is_none() && ai.excluded_subreddits.is_none() {
+        return true;
+    }
+    if ai.max_hours.is_some() && ai.max_hours.unwrap() > age {
+        return false;
+    }
+    if ai.minimum_score.is_some() && ai.minimum_score.unwrap() < info.score {
+        return false;
+    }
+    if ai.excluded_subreddits.is_some()
+        && ai
+            .excluded_subreddits
+            .clone()
+            .unwrap()
+            .contains(&info.subreddit.into())
+    {
+        return false;
+    }
+    return true;
 }
 
 #[tokio::main]
@@ -114,7 +153,7 @@ async fn main() {
     if let Some(matches) = matches.subcommand_matches("config") {
         let username = matches.value_of(USERNAME).unwrap();
         if matches.is_present(MIN_SCORE) {
-            let score = value_t!(matches, MIN_SCORE, u32)
+            let score = value_t!(matches, MIN_SCORE, i32)
                 .expect("Minimum score requires an integer value.");
             match config::set_minimum_score(username.into(), score.clone()) {
                 Ok(()) => println!("Set minimum score to {}", score),
@@ -122,7 +161,7 @@ async fn main() {
             }
         }
         if matches.is_present(MAX_HOURS) {
-            let hours = value_t!(matches, MAX_HOURS, u32)
+            let hours = value_t!(matches, MAX_HOURS, u64)
                 .expect("Maximum hours requires an integer value.");
             match config::set_max_hours(username.into(), hours.clone()) {
                 Ok(()) => println!("Max hours set to {}", hours),
@@ -132,9 +171,19 @@ async fn main() {
         if let Some(inputs) = matches.values_of(ADD_EXCLUDED_SUBREDDITS) {
             let mut to_add = Vec::new();
             for input in inputs {
-                to_add.push(input)
+                to_add.push(input);
             }
             match config::add_excluded_subreddits(username.into(), to_add) {
+                Ok(v) => (),
+                Err(e) => println!("Unable to set subreddit exclusion: {}", e),
+            }
+        }
+        if let Some(inputs) = matches.values_of(REMOVE_EXCLUDED_SUBREDDITS) {
+            let mut to_add = Vec::new();
+            for input in inputs {
+                to_add.push(input);
+            }
+            match config::remove_excluded_subreddits(username.into(), to_add) {
                 Ok(v) => (),
                 Err(e) => println!("Unable to set subreddit exclusion: {}", e),
             }
@@ -185,5 +234,85 @@ async fn main() {
             Ok(_) => println!("Deletion run done!"),
             Err(e) => println!("{}", e),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use config::tests::{account_info, fresh_account_info};
+    const SUBREDDIT: &'static str = "subreddit";
+    fn hours_ago_to_epoch(hours: f64) -> f64 {
+        time::SystemTime::now()
+            .duration_since(time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64()
+            - (3600.0 * hours)
+    }
+    fn test_post(hours_ago: f64, score: i32) -> reddit_api::Post {
+        reddit_api::Post {
+            saved: true,
+            name: "name".into(),
+            created_utc: hours_ago_to_epoch(hours_ago),
+            subreddit: String::from(SUBREDDIT),
+            score,
+            selftext: "".into(),
+            url: "".into(),
+            title: "".into(),
+        }
+    }
+    // Test Data:
+    // excluded_subreddits: Some(vec!["a".into(), "b".into(), "c".into()]),
+    // max_hours: Some(24),
+    // minimum_score: Some(1000),
+
+    #[test]
+    fn test_no_config_delete() {
+        assert_eq!(
+            check_should_delete(&fresh_account_info(), &test_post(0.0, 0)),
+            true
+        )
+    }
+    #[test]
+    fn test_max_hours_keep() {
+        let mut account = account_info();
+        account.minimum_score = None;
+        account.excluded_subreddits = None;
+        let keep = test_post(23.0, 0);
+        assert_eq!(check_should_delete(&account, &keep), false);
+    }
+    #[test]
+    fn test_max_hours_delete() {
+        let mut account = account_info();
+        account.minimum_score = None;
+        account.excluded_subreddits = None;
+        let delete = test_post(25.0, 0);
+        assert_eq!(check_should_delete(&account, &delete), true);
+    }
+    #[test]
+    fn test_minimum_score_keep() {
+        let mut account = fresh_account_info();
+        account.minimum_score = Some(1000);
+        let keep = test_post(0.0, 1001);
+        assert_eq!(check_should_delete(&account, &keep), false);
+    }
+    #[test]
+    fn test_minimum_score_delete() {
+        let mut account = fresh_account_info();
+        account.minimum_score = Some(1000);
+        let delete = test_post(25.0, 0);
+        assert_eq!(check_should_delete(&account, &delete), true);
+    }
+    #[test]
+    fn test_excluded_subreddits_keep() {
+        let mut account = fresh_account_info();
+        account.excluded_subreddits = Some(vec![SUBREDDIT.into()]);
+        assert_eq!(check_should_delete(&account, &test_post(0.0, 0)), false);
+    }
+    #[test]
+    fn test_excluded_subreddits_delete() {
+        let mut account = fresh_account_info();
+        account.excluded_subreddits = Some(vec!["a".into()]);
+        assert_eq!(check_should_delete(&account, &test_post(0.0, 0)), true);
     }
 }
