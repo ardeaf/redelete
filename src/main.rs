@@ -239,6 +239,7 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
+    /// Need to test check_should_delete with more mixed configs to make sure.
     use super::*;
     use config::tests::{account_info, fresh_account_info};
     const SUBREDDIT: &'static str = "subreddit";
@@ -261,10 +262,6 @@ mod tests {
             title: "".into(),
         }
     }
-    // Test Data:
-    // excluded_subreddits: Some(vec!["a".into(), "b".into(), "c".into()]),
-    // max_hours: Some(24),
-    // minimum_score: Some(1000),
 
     #[test]
     fn test_no_config_delete() {
