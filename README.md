@@ -45,6 +45,7 @@ This is my first rust app, so all feedback is welcome (negative or positive).
 #### Still needs
 * Edit-before-deletion logic. Still need to verify whether this makes a difference or not on reddit's servers.
 * General code cleanup: reorganization, remove comments, unused imports, dead code, etc.
+* Improved output (formatting, colors, etc)
 * A better readme
 
 #### Caveats
