@@ -1,16 +1,20 @@
 use super::config::{delete_user, read_config_account_info, save_token, AccountInfo, ConfigError};
 use super::oauth_server::{wait_for_oauth_redirect, OAuthRedirect};
+use async_std::sync::Mutex;
 use core::num::ParseIntError;
 use custom_error::custom_error;
 use once_cell::sync::Lazy;
+use rate_limit::SyncLimiter;
 use reqwest::{get, header, Client, Response, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
+use std::num::NonZeroU32;
 use std::result;
-use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
+use tokio::task;
+use tokio::time::delay_for;
 use webbrowser;
 
 #[cfg(test)]
@@ -39,9 +43,7 @@ fn domain() -> String {
     String::from(&*server_url())
 }
 
-static CHECK_TOKEN_MUTEX: Lazy<Mutex<i8>> = Lazy::new(|| Mutex::new(0));
-
-const DELETE_ENDPOINT: &'static str = "/api/delete";
+const DELETE_ENDPOINT: &'static str = "/api/del";
 const ACCESS_TOKEN_ENDPOINT: &'static str = "/api/v1/access_token";
 const ACCOUNT_INFO_ENDPOINT: &'static str = "/api/v1/me";
 const USER_AGENT_STRING: &'static str = "redelete: v0.0.1 (by /u/ardeaf)";
@@ -106,16 +108,16 @@ impl RedditParams {
     }
 }
 #[derive(Debug)]
-pub struct DeletionInfo<'di> {
+pub struct DeletionInfo {
     pub saved: bool,
-    pub name: &'di str,
+    pub name: String,
     pub created_utc: f64,
-    pub subreddit: &'di str,
+    pub subreddit: String,
     pub score: i32,
-    pub selftext: Option<&'di str>,
-    pub url: Option<&'di str>,
-    pub title: Option<&'di str>,
-    pub body: Option<&'di str>,
+    pub selftext: Option<String>,
+    pub url: Option<String>,
+    pub title: Option<String>,
+    pub body: Option<String>,
 }
 
 pub trait RedditPost {
@@ -125,13 +127,13 @@ impl RedditPost for Post {
     fn deletion_info(&self) -> DeletionInfo {
         DeletionInfo {
             saved: self.saved,
-            name: &self.name,
+            name: String::from(&self.name),
             created_utc: self.created_utc,
-            subreddit: &self.subreddit,
+            subreddit: String::from(&self.subreddit),
             score: self.score,
-            selftext: Some(&self.selftext),
-            url: Some(&self.url),
-            title: Some(&self.title),
+            selftext: Some(String::from(&self.selftext)),
+            url: Some(String::from(&self.url)),
+            title: Some(String::from(&self.title)),
             body: None,
         }
     }
@@ -140,14 +142,14 @@ impl RedditPost for Comment {
     fn deletion_info(&self) -> DeletionInfo {
         DeletionInfo {
             saved: self.saved,
-            name: &self.name,
+            name: String::from(&self.name),
             created_utc: self.created_utc,
-            subreddit: &self.subreddit,
+            subreddit: String::from(&self.subreddit),
             score: self.score,
             selftext: None,
             url: None,
             title: None,
-            body: Some(&self.body),
+            body: Some(String::from(&self.body)),
         }
     }
 }
@@ -174,18 +176,28 @@ pub struct Comment {
 }
 
 pub struct RedditClient {
-    pub client: Client,
+    client: Client,
     pub username: String,
-    pub account_info_mutex: Mutex<()>,
+    account_info_mutex: Mutex<()>,
+    ratelimiter: SyncLimiter,
 }
 impl RedditClient {
-    pub async fn post(self: &Self, endpoint: &str, params: &Vec<(&str, &str)>) -> Result<String> {
+    pub fn new(username: String) -> RedditClient {
+        RedditClient {
+            client: make_client().expect("Unable to create reqwest client."),
+            username,
+            account_info_mutex: Mutex::new(()),
+            ratelimiter: SyncLimiter::full(55, Duration::from_secs(60)),
+        }
+    }
+    async fn post(&self, endpoint: &str, params: &Vec<(&str, &str)>) -> Result<String> {
         let ai = self.check_account_info().await?;
+        self.ratelimiter.take();
         let response = self
             .client
             .post(&format!("{}{}", domain(), endpoint))
             .bearer_auth(ai.token.access_token)
-            .query(params)
+            .form(params)
             .send()
             .await?;
         let response_text = response.text().await?;
@@ -193,6 +205,7 @@ impl RedditClient {
     }
     async fn fetch(self: &Self, endpoint: &str, params: &Vec<(&str, String)>) -> Result<String> {
         let ai = self.check_account_info().await?;
+        self.ratelimiter.take();
         let a = self
             .client
             .get(&format!("{}{}", domain(), endpoint))
@@ -242,40 +255,45 @@ impl RedditClient {
         }
         Ok(total)
     }
-    pub async fn comments<'de>(self: &Self) -> Result<Vec<Comment>> {
+    pub async fn comments<'de>(self: &Self) -> Result<Vec<DeletionInfo>> {
         let endpoint = format!("/user/{}/comments", self.username);
         let comments = self.gather_all::<Comment>(&endpoint).await?;
-        Ok(comments)
+        let di = comments.into_iter().map(|c| c.deletion_info()).collect();
+        Ok(di)
     }
-    pub async fn posts<'de>(self: &Self) -> Result<Vec<Post>> {
+    pub async fn posts<'de>(self: &Self) -> Result<Vec<DeletionInfo>> {
         let endpoint = format!("/user/{}/submitted", self.username);
         let posts = self.gather_all::<Post>(&endpoint).await?;
-        Ok(posts)
+        let di = posts.into_iter().map(|c| c.deletion_info()).collect();
+        Ok(di)
     }
 
     pub async fn delete(self: &Self, fullname: &str) -> Result<()> {
         let params = vec![("id", fullname)];
         let resp = self.post(DELETE_ENDPOINT, &params).await?;
+        println!("Deleted!");
         Ok(())
     }
 
     async fn refresh(self: &Self, refresh_token: &str) -> Result<AccountInfo> {
+        println!("Refreshing OAuth2 token.");
         let new_oauth_token = self.update_token(refresh_token).await?;
         Ok(save_token(String::from(&self.username), new_oauth_token)?)
     }
     async fn check_account_info(self: &Self) -> Result<AccountInfo> {
-        let _ = self.account_info_mutex.lock().unwrap();
+        let _x = self.account_info_mutex.lock().await;
         let ai =
             read_config_account_info(&self.username).expect("Unable to open account config file.");
         if ai.token_expires > SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() {
             Ok(ai)
         } else {
-            Ok(self
+            let refresh = self
                 .refresh(&ai.token.refresh_token.expect(&format!(
                     "Unable to read refresh token from account {}, please reauthorize it.",
                     ai.username
                 )))
-                .await?)
+                .await?;
+            Ok(refresh)
         }
     }
     async fn update_token(self: &Self, refresh_token: &str) -> Result<OAuthToken> {
@@ -310,7 +328,7 @@ fn validate_oauth_redirect(state: String, oauth_redirect: &OAuthRedirect) -> Res
     }
 }
 
-pub fn make_client() -> Result<Client> {
+fn make_client() -> Result<Client> {
     let mut builder = Client::builder();
     let mut headers = header::HeaderMap::new();
     headers.insert(
@@ -510,11 +528,7 @@ mod tests {
         delete_user(&username).unwrap()
     }
     fn reddit_client(username: String) -> RedditClient {
-        RedditClient {
-            client: Client::new(),
-            username,
-            account_info_mutex: Mutex::new(()),
-        }
+        RedditClient::new(username)
     }
 
     #[test]

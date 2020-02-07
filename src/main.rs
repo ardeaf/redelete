@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate clap;
 
+use futures::try_join;
 use reqwest;
 use std::result;
 use std::sync::Mutex;
@@ -34,29 +35,64 @@ custom_error! {pub RedeleteError
 pub type Result<T> = result::Result<T, RedeleteError>;
 
 async fn run(username: String, dry: bool) -> Result<()> {
-    let client = reddit_api::RedditClient {
-        client: reddit_api::make_client()?,
-        username: username,
-        account_info_mutex: Mutex::new(()),
-    };
-    let comments = client.comments().await?;
+    let client = reddit_api::RedditClient::new(username);
+    let mut i: i32 = 0;
+    let (mut comments, mut posts) = try_join!(client.comments(), client.posts())?;
+    let mut all = Vec::new();
+    all.append(&mut comments);
+    all.append(&mut posts);
+
     let (_, ai) = config::get_config_and_account_info(&client.username)?;
-    for comment in comments {
-        let mut printed = false;
-        if check_should_delete(&ai, &comment) {
+    let mut printed = false;
+    for p in all {
+        if check_should_delete(&ai, &p) {
             if !printed {
                 printed = true;
-                println!("Deleting:")
+                println!("Deleting comments/submissions:")
             }
-            println!("/r/{}: {}", &comment.subreddit, &comment.body);
-            if !dry {}
+            println!("/r/{}:", &p.subreddit);
+            match p.body {
+                Some(s) => {
+                    let max = s.len();
+                    println!("{}", &s[..max])
+                }
+                None => {
+                    match p.title {
+                        Some(s) => {
+                            let max = s.len();
+                            println!("{}", &s[..max])
+                        }
+                        None => (),
+                    }
+                    match p.selftext {
+                        Some(s) => {
+                            let max = s.len();
+                            println!("{}", &s[..max])
+                        }
+                        None => (),
+                    }
+                    match p.url {
+                        Some(s) => {
+                            let max = s.len();
+                            println!("{}", &s[..max])
+                        }
+                        None => (),
+                    }
+                }
+            }
+            println!("");
+            if !dry {
+                client.delete(&p.name).await?;
+            }
         }
+    }
+    if !printed {
+        println!("No comments or submissions to delete.")
     }
     Ok(())
 }
 
-fn check_should_delete<T: reddit_api::RedditPost>(ai: &config::AccountInfo, comment: &T) -> bool {
-    let info = comment.deletion_info();
+fn check_should_delete(ai: &config::AccountInfo, info: &reddit_api::DeletionInfo) -> bool {
     let age: u64 = time::SystemTime::now()
         .duration_since(time::UNIX_EPOCH + time::Duration::from_secs_f64(info.created_utc.clone()))
         .unwrap()
@@ -76,7 +112,7 @@ fn check_should_delete<T: reddit_api::RedditPost>(ai: &config::AccountInfo, comm
             .excluded_subreddits
             .clone()
             .unwrap()
-            .contains(&info.subreddit.into())
+            .contains(&String::from(&*info.subreddit))
     {
         return false;
     }
@@ -123,33 +159,29 @@ async fn main() {
                 .arg(&exclude_arg)
                 .arg(&include_arg)
                 .arg(&score_arg)
-                .arg(&max_hours_arg)
+                .arg(&max_hours_arg),
         )
         .subcommand(
             App::new("run")
                 .about("Run the deletion part of the app.")
-                .arg(
-                    Arg::with_name(DRYRUN)
-                        .short("d")
-                        .long("dry-run")
-                        .requires("run")
-                        .help("Fetches comments and submissions to be deleted, then prompts to delete it."),
-                )
+                .arg(Arg::with_name(DRYRUN).short("d").long("dry-run").help(
+                    "Fetches comments and submissions to be deleted, then prompts to delete it.",
+                ))
                 .arg(&username_arg)
                 .arg(&exclude_arg)
                 .arg(&include_arg)
                 .arg(&score_arg)
-                .arg(&max_hours_arg)
+                .arg(&max_hours_arg),
         )
         .subcommand(
             App::new(VIEW)
                 .about("View saved configs for given <username>")
-                .arg(&username_arg)
+                .arg(&username_arg),
         )
         .subcommand(
-            App::new(AUTHORIZE)
-                .about("Authorize this application with your reddit account.")
-        ).get_matches();
+            App::new(AUTHORIZE).about("Authorize this application with your reddit account."),
+        )
+        .get_matches();
     if let Some(matches) = matches.subcommand_matches("config") {
         let username = matches.value_of(USERNAME).unwrap();
         if matches.is_present(MIN_SCORE) {
@@ -229,10 +261,17 @@ async fn main() {
             ),
         }
     } else if let Some(matches) = matches.subcommand_matches(RUN) {
-        let dry = matches.value_of(DRYRUN).is_some();
-        match run(matches.value_of(USERNAME).unwrap().to_string(), dry).await {
-            Ok(_) => println!("Deletion run done!"),
-            Err(e) => println!("{}", e),
+        let dry = matches.is_present(DRYRUN);
+        let username = matches.value_of(USERNAME).unwrap();
+        match config::read_config_account_info(&username) {
+            Some(_) => match run(username.into(), dry).await {
+                Ok(_) => println!("Done."),
+                Err(e) => println!("{}", e),
+            },
+            None => println!(
+                "{} is not a saved username in your config. Try authorizing that username first.",
+                &username
+            ),
         }
     }
 }
@@ -242,6 +281,7 @@ mod tests {
     /// Need to test check_should_delete with more mixed configs to make sure.
     use super::*;
     use config::tests::{account_info, fresh_account_info};
+    use reddit_api::RedditPost;
     const SUBREDDIT: &'static str = "subreddit";
     fn hours_ago_to_epoch(hours: f64) -> f64 {
         time::SystemTime::now()
@@ -266,7 +306,7 @@ mod tests {
     #[test]
     fn test_no_config_delete() {
         assert_eq!(
-            check_should_delete(&fresh_account_info(), &test_post(0.0, 0)),
+            check_should_delete(&fresh_account_info(), &test_post(0.0, 0).deletion_info()),
             true
         )
     }
@@ -275,7 +315,7 @@ mod tests {
         let mut account = account_info();
         account.minimum_score = None;
         account.excluded_subreddits = None;
-        let keep = test_post(23.0, 0);
+        let keep = test_post(23.0, 0).deletion_info();
         assert_eq!(check_should_delete(&account, &keep), false);
     }
     #[test]
@@ -283,33 +323,39 @@ mod tests {
         let mut account = account_info();
         account.minimum_score = None;
         account.excluded_subreddits = None;
-        let delete = test_post(25.0, 0);
+        let delete = test_post(25.0, 0).deletion_info();
         assert_eq!(check_should_delete(&account, &delete), true);
     }
     #[test]
     fn test_minimum_score_keep() {
         let mut account = fresh_account_info();
         account.minimum_score = Some(1000);
-        let keep = test_post(0.0, 1001);
+        let keep = test_post(0.0, 1001).deletion_info();
         assert_eq!(check_should_delete(&account, &keep), false);
     }
     #[test]
     fn test_minimum_score_delete() {
         let mut account = fresh_account_info();
         account.minimum_score = Some(1000);
-        let delete = test_post(25.0, 0);
+        let delete = test_post(25.0, 0).deletion_info();
         assert_eq!(check_should_delete(&account, &delete), true);
     }
     #[test]
     fn test_excluded_subreddits_keep() {
         let mut account = fresh_account_info();
         account.excluded_subreddits = Some(vec![SUBREDDIT.into()]);
-        assert_eq!(check_should_delete(&account, &test_post(0.0, 0)), false);
+        assert_eq!(
+            check_should_delete(&account, &test_post(0.0, 0).deletion_info()),
+            false
+        );
     }
     #[test]
     fn test_excluded_subreddits_delete() {
         let mut account = fresh_account_info();
         account.excluded_subreddits = Some(vec!["a".into()]);
-        assert_eq!(check_should_delete(&account, &test_post(0.0, 0)), true);
+        assert_eq!(
+            check_should_delete(&account, &test_post(0.0, 0).deletion_info()),
+            true
+        );
     }
 }

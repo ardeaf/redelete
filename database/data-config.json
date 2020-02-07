@@ -1,0 +1,7 @@
+{
+  "DocMaxRoom": 2097152,
+  "ColFileGrowth": 33554432,
+  "PerBucket": 16,
+  "HTFileGrowth": 33554432,
+  "HashBits": 16
+}

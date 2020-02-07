@@ -22,6 +22,8 @@ url = "^2.1.1"
 custom_error = "1.7.1"
 once_cell = "1.3.1"
 clap = "^2.33.0"
+async-std = "^1.5.0"
+rate_limit = "0.1.1"
 
 [dev-dependencies]
 dirs = "^2.0.2"
