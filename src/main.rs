@@ -50,16 +50,17 @@ async fn run(username: String, dry: bool) -> Result<()> {
                 printed = true;
                 println!("Deleting comments/submissions:")
             }
-            println!("/r/{}:", &p.subreddit);
             match p.body {
                 Some(s) => {
                     let max = s.len();
+                    println!("comment @ /r/{}:", &p.subreddit);
                     println!("{}", &s[..max])
                 }
                 None => {
                     match p.title {
                         Some(s) => {
                             let max = s.len();
+                            println!("submission @ /r/{}:", &p.subreddit);
                             println!("{}", &s[..max])
                         }
                         None => (),
