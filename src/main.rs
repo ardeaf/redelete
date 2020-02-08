@@ -137,12 +137,12 @@ async fn main() {
     let score_arg = Arg::with_name(MIN_SCORE)
         .short("s")
         .long("min-score")
-        .help("Minimum score required to prevent deletion of comment/submission.")
+        .help("Minimum score required to prevent deletion of comment/submission. Set to 0 to remove filter.")
         .takes_value(true);
     let max_hours_arg = Arg::with_name(MAX_HOURS)
         .short("t")
         .long("max-hours")
-        .help("Will not delete comments/submissions made within this many hours.")
+        .help("Will not delete comments/submissions made within this many hours. Set to 0 to remove filter.")
         .takes_value(true);
     let username_arg = Arg::with_name(USERNAME)
         .help("Username to config/run the app for.")
@@ -189,7 +189,13 @@ async fn main() {
             let score = value_t!(matches, MIN_SCORE, i32)
                 .expect("Minimum score requires an integer value.");
             match config::set_minimum_score(username.into(), score.clone()) {
-                Ok(()) => println!("Set minimum score to {}", score),
+                Ok(()) => {
+                    if score > 0 {
+                        println!("Set minimum score to {}", score)
+                    } else {
+                        println!("Removed minimum score filter.")
+                    }
+                }
                 Err(e) => println!("Unable to set minimum score: {}", e),
             }
         }
@@ -197,7 +203,13 @@ async fn main() {
             let hours = value_t!(matches, MAX_HOURS, u64)
                 .expect("Maximum hours requires an integer value.");
             match config::set_max_hours(username.into(), hours.clone()) {
-                Ok(()) => println!("Max hours set to {}", hours),
+                Ok(()) => {
+                    if hours > 0 {
+                        println!("Max hours set to {}", hours)
+                    } else {
+                        println!("Removed max hours filter.")
+                    }
+                }
                 Err(e) => println!("Unable to set max hours: {}", e),
             }
         }

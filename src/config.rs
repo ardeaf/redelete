@@ -113,14 +113,22 @@ pub fn set_excluded_subreddits(username: String, excluded_subreddits: Vec<String
 
 pub fn set_max_hours(username: String, max_hours: u64) -> Result<()> {
     let (mut c, mut ai) = get_config_and_account_info(&username)?;
-    ai.max_hours = Some(max_hours);
+    if max_hours > 0 {
+        ai.max_hours = Some(max_hours);
+    } else {
+        ai.max_hours = None;
+    }
     c.accounts.push(ai.clone());
     Ok(save_config(c)?)
 }
 
 pub fn set_minimum_score(username: String, score: i32) -> Result<()> {
     let (mut c, mut ai) = get_config_and_account_info(&username)?;
-    ai.minimum_score = Some(score);
+    if score > 0 {
+        ai.minimum_score = Some(score);
+    } else {
+        ai.minimum_score = None;
+    }
     c.accounts.push(ai.clone());
     Ok(save_config(c)?)
 }
