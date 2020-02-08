@@ -1,14 +1,14 @@
-use dialoguer::{Input, Validator};
-use reqwest::{header, Client};
 use serde::{Deserialize, Serialize};
 use std::cmp::{Eq, PartialEq};
 use std::collections::HashMap;
-use std::error::Error;
 use std::net::TcpListener;
-use std::{assert_eq, assert_ne};
-use tiny_http::{Header, Response, Server};
-use tokio::runtime::Runtime;
+use tiny_http::Server;
 use url::Url;
+
+#[cfg(test)]
+use reqwest::Client;
+#[cfg(test)]
+use tokio::runtime::Runtime;
 
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
 pub struct OAuthRedirect {

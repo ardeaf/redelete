@@ -2,9 +2,7 @@
 extern crate clap;
 
 use futures::try_join;
-use reqwest;
 use std::result;
-use std::sync::Mutex;
 use tokio;
 mod config;
 mod oauth_server;

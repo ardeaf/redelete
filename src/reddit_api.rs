@@ -1,20 +1,14 @@
 use super::config::{delete_user, read_config_account_info, save_token, AccountInfo, ConfigError};
 use super::oauth_server::{wait_for_oauth_redirect, OAuthRedirect};
 use async_std::sync::Mutex;
-use core::num::ParseIntError;
 use custom_error::custom_error;
-use once_cell::sync::Lazy;
 use rate_limit::SyncLimiter;
-use reqwest::{get, header, Client, Response, Url};
+use reqwest::{header, Client};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::borrow::Cow;
-use std::num::NonZeroU32;
 use std::result;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
-use tokio::task;
-use tokio::time::delay_for;
 use webbrowser;
 
 #[cfg(test)]
@@ -22,7 +16,7 @@ use super::test_data;
 #[cfg(test)]
 use mockito::Mock;
 #[cfg(test)]
-use mockito::{mock, server_url, Matcher};
+use mockito::{server_url, Matcher};
 #[cfg(test)]
 use serial_test::serial;
 
@@ -270,7 +264,7 @@ impl RedditClient {
 
     pub async fn delete(self: &Self, fullname: &str) -> Result<()> {
         let params = vec![("id", fullname)];
-        let resp = self.post(DELETE_ENDPOINT, &params).await?;
+        let _resp = self.post(DELETE_ENDPOINT, &params).await?;
         println!("Deleted!");
         Ok(())
     }
@@ -329,7 +323,7 @@ fn validate_oauth_redirect(state: String, oauth_redirect: &OAuthRedirect) -> Res
 }
 
 fn make_client() -> Result<Client> {
-    let mut builder = Client::builder();
+    let builder = Client::builder();
     let mut headers = header::HeaderMap::new();
     headers.insert(
         header::USER_AGENT,
@@ -520,7 +514,7 @@ mod tests {
         save_token(String::from(&username), token).unwrap();
         let client = reddit_client(String::from(&username));
         let (_m1, _m2, _m3) = expired_token_mocks();
-        let resp = Runtime::new()
+        let _resp = Runtime::new()
             .unwrap()
             .block_on(async { client.fetch(ACCOUNT_INFO_ENDPOINT, &vec![]).await.unwrap() });
         let ai = read_config_account_info(&username).unwrap();
@@ -595,7 +589,7 @@ mod tests {
                     &String::from(comments.join(", ")),
                     &after
                 );
-                let endpoint = &format!("/user/{}/comments", TEST_USER);
+                // let endpoint = &format!("/user/{}/comments", TEST_USER);
                 if i.clone() > 0 {
                     mock("GET", Matcher::Any)
                         .match_query(Matcher::UrlEncoded("after".into(), i.to_string()))
@@ -649,7 +643,7 @@ mod tests {
                     &String::from(posts.join(", ")),
                     &after
                 );
-                let endpoint = &format!("/user/{}/submitted", TEST_USER);
+                // let endpoint = &format!("/user/{}/submitted", TEST_USER);
                 if i.clone() > 0 {
                     mock("GET", Matcher::Any)
                         .match_query(Matcher::UrlEncoded("after".into(), i.to_string()))
@@ -666,7 +660,7 @@ mod tests {
             .collect();
         let reddit_client = reddit_client(String::from(TEST_USER));
         save_token(String::from(&reddit_client.username), token()).unwrap();
-        let fetched_comments = Runtime::new()
+        let _fetched_comments = Runtime::new()
             .unwrap()
             .block_on(async { reddit_client.posts().await.unwrap() });
         for mock in mocks {
