@@ -202,7 +202,7 @@ fn get_config() -> Result<Config> {
     }
 }
 
-pub fn delete_user(username: &str) -> Result<()> {
+pub fn delete_user(username: &str) -> Result<bool> {
     let config = get_config().unwrap();
     let mut accounts: Vec<AccountInfo> = Vec::new();
     for account in &config.accounts {
@@ -213,8 +213,12 @@ pub fn delete_user(username: &str) -> Result<()> {
             continue;
         }
     }
-    save_config(Config { accounts }).expect("Failed to delete user from config.");
-    Ok(())
+    if accounts.len() < config.accounts.len() {
+        save_config(Config { accounts }).expect("Failed to delete user from config.");
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 pub fn read_config_account_info(username: &str) -> Option<AccountInfo> {
@@ -303,7 +307,7 @@ pub mod tests {
             read_config_account_info(&test_username()).unwrap(),
             fresh_account_info()
         );
-        assert_eq!(delete_user(&test_username()).unwrap(), ());
+        assert_eq!(delete_user(&test_username()).unwrap(), true);
     }
 
     #[test]
@@ -316,7 +320,7 @@ pub mod tests {
         save_token(test_username(), token2).unwrap();
         let config = get_config().unwrap();
         assert_eq!(config.accounts.len(), before_config.accounts.len() + 1);
-        delete_user(&test_username()).unwrap()
+        delete_user(&test_username()).unwrap();
     }
     #[test]
     #[serial]
@@ -333,21 +337,21 @@ pub mod tests {
             account_info.token.refresh_token,
             Some("REFRESH_TOKEN".into())
         );
-        delete_user(&test_username()).unwrap()
+        delete_user(&test_username()).unwrap();
     }
     #[test]
     #[serial]
     fn test_set_max_hours() {
         save_token(test_username(), token()).unwrap();
         assert_eq!(set_max_hours(test_username(), 1).unwrap(), ());
-        delete_user(&test_username()).unwrap()
+        delete_user(&test_username()).unwrap();
     }
     #[test]
     #[serial]
     fn test_set_minimum_score() {
         save_token(test_username(), token()).unwrap();
         assert_eq!(set_minimum_score(test_username(), 1000).unwrap(), ());
-        delete_user(&test_username()).unwrap()
+        delete_user(&test_username()).unwrap();
     }
     #[test]
     #[serial]
@@ -381,6 +385,6 @@ pub mod tests {
         );
         let account_info = read_config_account_info(&test_username()).unwrap();
         assert_eq!(account_info.excluded_subreddits, None);
-        delete_user(&test_username()).unwrap()
+        delete_user(&test_username()).unwrap();
     }
 }

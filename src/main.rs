@@ -23,6 +23,7 @@ const AUTHORIZE: &'static str = "authorize";
 const VIEW: &'static str = "view";
 const RUN: &'static str = "run";
 const DRYRUN: &'static str = "dry_run";
+const FORGET_ACCOUNT: &'static str = "forget";
 
 custom_error! {pub RedeleteError
     RedditApiError{ source: reddit_api::RedditApiError } = "Reddit API Error",
@@ -178,7 +179,15 @@ async fn main() {
                 .arg(&username_arg),
         )
         .subcommand(
-            App::new(AUTHORIZE).about("Authorize this application with your reddit account."),
+            App::new(AUTHORIZE)
+                .about("Authorize this application with your reddit account.")
+                .arg(
+                    Arg::with_name(FORGET_ACCOUNT)
+                        .short("f")
+                        .long("forget-account")
+                        .help("Removes account from the saved config file.")
+                        .takes_value(true),
+                ),
         )
         .get_matches();
     if let Some(matches) = matches.subcommand_matches("config") {
@@ -231,10 +240,18 @@ async fn main() {
                 Err(e) => println!("Unable to set subreddit exclusion: {}", e),
             }
         }
-    } else if matches.subcommand_matches(AUTHORIZE).is_some() {
-        match reddit_api::authorize() {
-            Ok(s) => println!("Authorized account {}", s),
-            Err(e) => println!("Unable to authorize account. {}", e),
+    } else if let Some(matches) = matches.subcommand_matches(AUTHORIZE) {
+        if let Some(username) = matches.value_of(FORGET_ACCOUNT) {
+            match config::delete_user(&*username) {
+                Ok(true) => println!("Removed {} from config file", username),
+                Ok(false) => println!("{} was not found in the config file.", username),
+                Err(e) => println!("Unable to delete. {}", e),
+            }
+        } else {
+            match reddit_api::authorize() {
+                Ok(s) => println!("Authorized account {}", s),
+                Err(e) => println!("Unable to authorize account. {}", e),
+            }
         }
     } else if let Some(matches) = matches.subcommand_matches(VIEW) {
         match config::read_config_account_info(matches.value_of(USERNAME).unwrap()) {

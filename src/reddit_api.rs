@@ -519,7 +519,7 @@ mod tests {
             .block_on(async { client.fetch(ACCOUNT_INFO_ENDPOINT, &vec![]).await.unwrap() });
         let ai = read_config_account_info(&username).unwrap();
         assert_eq!(ai.token.access_token, REFRESHED_ACCESS_TOKEN);
-        delete_user(&username).unwrap()
+        delete_user(&username).unwrap();
     }
     fn reddit_client(username: String) -> RedditClient {
         RedditClient::new(username)
