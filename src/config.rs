@@ -169,7 +169,7 @@ pub fn save_token(username: String, token: OAuthToken) -> Result<AccountInfo> {
     Ok(account_info)
 }
 
-// I think I may have accidentally coded this twice. Lol.
+// I think I may have accidentally coded this twice.
 #[cfg(test)]
 pub fn update_token(username: String, token: OAuthToken) -> Result<()> {
     let account_config =
