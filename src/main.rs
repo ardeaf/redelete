@@ -247,7 +247,7 @@ async fn main() {
                 Err(e) => println!("Unable to delete. {}", e),
             }
         } else {
-            match reddit_api::authorize() {
+            match reddit_api::authorize().await {
                 Ok(s) => println!("Authorized account {}", s),
                 Err(e) => println!("Unable to authorize account. {}", e),
             }

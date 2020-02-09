@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::result;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::runtime::Runtime;
 use webbrowser;
 
 #[cfg(test)]
@@ -21,6 +20,8 @@ use mockito::Mock;
 use mockito::{server_url, Matcher};
 #[cfg(test)]
 use serial_test::serial;
+#[cfg(test)]
+use tokio::runtime::Runtime;
 
 #[cfg(not(test))]
 fn auth_domain() -> String {
@@ -334,7 +335,7 @@ fn make_client() -> Result<Client> {
     Ok(builder.default_headers(headers).build()?)
 }
 
-fn get_token<'de>(oauth_redirect: &OAuthRedirect) -> Result<OAuthToken> {
+async fn get_token<'de>(oauth_redirect: &OAuthRedirect) -> Result<OAuthToken> {
     let client = make_client()?;
 
     let data = format!(
@@ -342,22 +343,19 @@ fn get_token<'de>(oauth_redirect: &OAuthRedirect) -> Result<OAuthToken> {
         String::from(&oauth_redirect.code),
         REDIRECT_URI
     );
-    let access_token = Runtime::new().unwrap().block_on(async {
-        let t = client
-            .post(&format!("{}{}", &auth_domain(), ACCESS_TOKEN_ENDPOINT))
-            .basic_auth(CLIENT_ID, Some(""))
-            .body(data)
-            .send()
-            .await
-            .expect("Unable to post data")
-            .text()
-            .await
-            .expect("Unable to parse auth response");
-        let token: OAuthToken =
-            serde_json::from_str(&t).expect("Unable to serialize access token response text");
-        token
-    });
-    Ok(access_token)
+    let t = client
+        .post(&format!("{}{}", &auth_domain(), ACCESS_TOKEN_ENDPOINT))
+        .basic_auth(CLIENT_ID, Some(""))
+        .body(data)
+        .send()
+        .await
+        .expect("Unable to post data")
+        .text()
+        .await
+        .expect("Unable to parse auth response");
+    let token: OAuthToken =
+        serde_json::from_str(&t).expect("Unable to serialize access token response text");
+    Ok(token)
 }
 
 #[derive(Deserialize, Debug)]
@@ -365,30 +363,26 @@ struct User {
     name: String,
 }
 
-pub fn username(token: &OAuthToken) -> Result<String> {
+pub async fn username(token: &OAuthToken) -> Result<String> {
     let client = make_client()?;
-    let user_info = Runtime::new().unwrap().block_on(async {
-        client
-            .get(&format!("{}{}", domain(), ACCOUNT_INFO_ENDPOINT))
-            .bearer_auth(&token.access_token)
-            .send()
-            .await
-            .expect("Couldn't get user info.")
-            .text()
-            .await
-            .expect("Couldn't parse user information response")
-    });
+    let user_info = client
+        .get(&format!("{}{}", domain(), ACCOUNT_INFO_ENDPOINT))
+        .bearer_auth(&token.access_token)
+        .send()
+        .await?
+        .text()
+        .await?;
     let user: User = serde_json::from_str(&user_info)?;
     Ok(user.name)
 }
 
-pub fn authorize() -> Result<String> {
+pub async fn authorize() -> Result<String> {
     // I don't see how to test this without installing a webdriver and using a dummy account. I don't want to do that.
     let state = open_authorization_page()?;
     let oauth_redirect = wait_for_oauth_redirect(8000, 8001).unwrap();
     validate_oauth_redirect(state, &oauth_redirect)?;
-    let access_token = get_token(&oauth_redirect)?;
-    let username = username(&access_token)?;
+    let access_token = get_token(&oauth_redirect).await?;
+    let username = username(&access_token).await?;
     save_token(username.clone(), access_token)?;
     Ok(username)
 }
@@ -448,7 +442,9 @@ mod tests {
         let _m = mock("GET", ACCOUNT_INFO_ENDPOINT)
             .with_body(USER_INFO_BODY)
             .create();
-        let username = username(&token())?;
+        let username = Runtime::new()
+            .unwrap()
+            .block_on(async { username(&token()).await.unwrap() });
         assert_eq!(username, "ardeaf");
         Ok(())
     }
@@ -469,7 +465,10 @@ mod tests {
             .with_body(TOKEN_BODY)
             .create();
         let token: OAuthToken = serde_json::from_str(TOKEN_BODY).unwrap();
-        assert_eq!(get_token(&oauth_redirect()).unwrap(), token)
+        let test_token: OAuthToken = Runtime::new()
+            .unwrap()
+            .block_on(async { get_token(&oauth_redirect()).await.unwrap() });
+        assert_eq!(test_token, token)
     }
 
     fn expired_token_mocks() -> (mockito::Mock, mockito::Mock, mockito::Mock) {
