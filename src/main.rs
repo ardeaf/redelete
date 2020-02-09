@@ -148,7 +148,7 @@ async fn main() {
         .required(true)
         .takes_value(true);
     let matches = App::new("Redelete")
-        .version("0.1")
+        .version("0.2")
         .author("Justin E. <ardeaf@gmail.com>")
         .about("Deletes your reddit comments and submissions")
         .subcommand(
