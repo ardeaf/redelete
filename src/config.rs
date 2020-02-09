@@ -71,7 +71,7 @@ pub fn get_config_and_account_info(username: &str) -> Result<(Config, AccountInf
 }
 
 pub fn remove_excluded_subreddits(username: String, subreddits: Vec<&str>) -> Result<()> {
-    let (mut c, mut ai) = get_config_and_account_info(&username)?;
+    let (_, ai) = get_config_and_account_info(&username)?;
     let es: Vec<String> = ai
         .excluded_subreddits
         .unwrap_or(Vec::new())
@@ -83,7 +83,7 @@ pub fn remove_excluded_subreddits(username: String, subreddits: Vec<&str>) -> Re
 }
 
 pub fn add_excluded_subreddits(username: String, subreddits: Vec<&str>) -> Result<()> {
-    let (mut c, mut ai) = get_config_and_account_info(&username)?;
+    let (_, ai) = get_config_and_account_info(&username)?;
     let mut es = ai.excluded_subreddits.unwrap_or(Vec::new()).clone();
     for sr in subreddits {
         let s = String::from(sr);
@@ -140,7 +140,7 @@ pub fn save_token(username: String, token: OAuthToken) -> Result<AccountInfo> {
         .as_secs()
         + &token.expires_in;
     let (mut config, account_info) = match get_config_and_account_info(&username) {
-        Ok((mut c, mut ai)) => {
+        Ok((c, mut ai)) => {
             ai.token = token;
             ai.token_expires = token_expires;
             (c, ai)
@@ -180,9 +180,9 @@ pub fn update_token(username: String, token: OAuthToken) -> Result<()> {
 
 fn get_config() -> Result<Config> {
     if !config_file_path().exists() {
-        let mut dirs = config_dir();
+        let dirs = config_dir();
         std::fs::create_dir_all(dirs)?;
-        let f = File::create(config_file_path())?;
+        let _f = File::create(config_file_path())?;
         Ok(Config {
             accounts: Vec::new(),
         })

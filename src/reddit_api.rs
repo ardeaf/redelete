@@ -1,4 +1,4 @@
-use super::config::{delete_user, read_config_account_info, save_token, AccountInfo, ConfigError};
+use super::config::{read_config_account_info, save_token, AccountInfo, ConfigError};
 use super::oauth_server::{wait_for_oauth_redirect, OAuthRedirect};
 use async_std::sync::Mutex;
 use custom_error::custom_error;
@@ -11,6 +11,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
 use webbrowser;
 
+#[cfg(test)]
+use super::config::delete_user;
 #[cfg(test)]
 use super::test_data;
 #[cfg(test)]

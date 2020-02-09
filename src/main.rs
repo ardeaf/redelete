@@ -35,7 +35,6 @@ pub type Result<T> = result::Result<T, RedeleteError>;
 
 async fn run(username: String, dry: bool) -> Result<()> {
     let client = reddit_api::RedditClient::new(username);
-    let mut i: i32 = 0;
     let (mut comments, mut posts) = try_join!(client.comments(), client.posts())?;
     let mut all = Vec::new();
     all.append(&mut comments);
@@ -226,7 +225,7 @@ async fn main() {
                 to_add.push(input);
             }
             match config::add_excluded_subreddits(username.into(), to_add) {
-                Ok(v) => (),
+                Ok(_) => (),
                 Err(e) => println!("Unable to set subreddit exclusion: {}", e),
             }
         }
@@ -236,7 +235,7 @@ async fn main() {
                 to_add.push(input);
             }
             match config::remove_excluded_subreddits(username.into(), to_add) {
-                Ok(v) => (),
+                Ok(_) => (),
                 Err(e) => println!("Unable to set subreddit exclusion: {}", e),
             }
         }
