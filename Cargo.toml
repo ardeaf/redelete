@@ -11,7 +11,7 @@ categories = ["command-line-utilities"]
 license = "GPL-3.0-only"
 
 [badges]
-travis-ci = { repository = "...", branch = "master" }
+travis-ci = { repository = "ardeaf/redelete", branch = "master" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
