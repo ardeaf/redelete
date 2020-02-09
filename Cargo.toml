@@ -33,5 +33,5 @@ rate_limit = "0.1.1"
 
 [dev-dependencies]
 dirs = "^2.0.2"
-serial_test = "*"
-mockito = "^0.22.0"
+serial_test = "^0.3.2"
+mockito = "0.23.1"
