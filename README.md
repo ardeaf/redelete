@@ -1,4 +1,5 @@
-## Redelete removes all of your reddit comments and submissions. 
+# Redelete removes all of your reddit comments and submissions. 
+[![Build Status](https://travis-ci.com/ardeaf/redelete.svg?branch=master)](https://travis-ci.com/ardeaf/redelete)
 
 ### Quickstart
 ```
@@ -42,13 +43,13 @@ $ redelete view -h
 
 This is my first rust app, so all feedback is welcome (negative or positive).
 
-#### Still needs
+#### To do
 * Edit-before-deletion logic. Still need to verify whether this makes a difference or not on reddit's servers.
 * General code cleanup: reorganization, remove comments, unused imports, dead code, etc.
+* Add docs
 * Improved output (formatting, colors, etc)
-* A better readme
 
-#### Caveats
+#### Warning
 * Pushshift and other similar services will still index your posts
 * Once your account is authorized, the refresh oauth token is stored in a plain text file under your user account. The only thing the token can do is let someone use the reddit api to:
   * read your posts/comments/upvotes/downvotes and other history info

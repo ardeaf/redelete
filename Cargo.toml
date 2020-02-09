@@ -3,6 +3,8 @@ name = "redelete"
 version = "0.2.0"
 authors = ["ardeaf <ardeaf@gmail.com>"]
 edition = "2018"
+repository = "https://github.com/ardeaf/redelete"
+description = "Redelete deletes all your reddit comments and submissions, with optional filters for skipping."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
