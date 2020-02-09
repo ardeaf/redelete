@@ -17,18 +17,11 @@ pack() {
     out_dir=$(pwd)
     package_name="$PROJECT_NAME-$TRAVIS_TAG-$TARGET"
 
-    if [[ $TARGET == arm-unknown-linux-* ]]; then
-        gcc_prefix="arm-linux-gnueabihf-"
-    else
-        gcc_prefix=""
-    fi
-
     # create a "staging" directory
     mkdir "$tempdir/$package_name"
 
     # copying the main binary
     cp "target/$TARGET/release/$PROJECT_NAME" "$tempdir/$package_name/"
-    "${gcc_prefix}"strip "$tempdir/$package_name/$PROJECT_NAME"
 
     # manpage, readme and license
     cp README.md "$tempdir/$package_name"
