@@ -5,14 +5,13 @@ rust:
 jobs:
   allow_failures:
   - rust: nightly
-  fast_finish: true
 deploy:
   provider: releases
-  skip_cleanup: true
+  cleanup: false
   api_key:
     secure: eFJRgB+cw0Uqu7NhP0npOtuQ2/e/g3aLwi75xWRBrtbE16psEf+L1GsSsimMTYSJsMGUnUb2qrhOk0oXRb/Iy5DzcKAwfi4pu68+/qOrUzxX4/1/PklOk2t8Rh83fMGy3PIUhwc391RQoWVIHlw86Bhf+0/at48hmNLFvmIG6Y4Gwn7A0AF+lPP0jyaVSVXEV4ic6EYzPangd2k9/pCC1Y6VO9VoOMtNUT/4aMlEHRnbRoONl6c3kqcmZ02ddI6xKmdkq/1V7+5mpF3aBKbau61EBcENwiw5GCU4UVGzKBAD9GYPEtuKb/2rZF63vGvwVFpxW3QcolYj9iDeyD5VxKW+R8RqY0x/1aL+wpr9zc4rpvQWyQw04Ca+v1jG3QRtMLUk01TrD/0cKlLMandvdnIa0PnxEVRbrpfJZxHJFoylg5+WJ46gLEV6DC2+r0PGEtE982BQgDr7hj1rLRQOw+9GNagmidj/7ZhB/sWxXmEf6jRVXWW1uypaKw87OeM254Bas/RVzd67G+UvulFnKnQ2Wpk8wV7QtUWZ0G8wLkKDy23wgGIZPGMBv4Pghb5v1x/KDMf/ZfCJE275h1kpiUs1mDy/15mARITdFE9YGF/deYkWqy+n8s6wH+NnaKFxrmUA09vhgd2wgtaFBuj+DLasoUKF8wpX85psnX6dfmU=
-  file_glob: true
-  file: "target/release/*"
+  verbose: true
+  file: target/release/redelete
   on:
     repo: ardeaf/redelete
     tags: true
