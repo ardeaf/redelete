@@ -169,6 +169,8 @@ pub fn save_token(username: String, token: OAuthToken) -> Result<AccountInfo> {
     Ok(account_info)
 }
 
+// I think I may have accidentally coded this twice. Lol.
+#[cfg(test)]
 pub fn update_token(username: String, token: OAuthToken) -> Result<()> {
     let account_config =
         read_config_account_info(&username).expect(&format!("Unable to find user {}", username));

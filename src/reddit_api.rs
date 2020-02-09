@@ -423,7 +423,6 @@ mod tests {
     "expires_in": 3600,
     "scope": "history,edit,account"
 }"#;
-    const ACCESS_TOKEN: &'static str = "ACCESS_TOKEN";
     const TOKEN_BODY: &'static str = r#"{
     "access_token": "ACCESS_TOKEN", 
     "token_type": "bearer", 
