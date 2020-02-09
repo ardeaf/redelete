@@ -7,7 +7,8 @@ jobs:
   - rust: nightly
 os:
   - linux
-script: cargo build --verbose --release; cargo test --verbose
+env: TARGET=x86_64-unknown-linux-gnu
+script: ci/before_deploy.bash
 deploy:
   - provider: releases
     skip_cleanup: true
