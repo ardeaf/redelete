@@ -1,6 +1,6 @@
 [package]
 name = "redelete"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["ardeaf <ardeaf@gmail.com>"]
 edition = "2018"
 repository = "https://github.com/ardeaf/redelete"
@@ -8,7 +8,7 @@ description = "Redelete deletes all your reddit comments and submissions, with o
 readme = "README.md"
 keywords = ["reddit", "privacy", "oauth", "cli"]
 categories = ["command-line-utilities"]
-license = "GPL-3.0-only"
+license = "MIT"
 
 [badges]
 travis-ci = { repository = "ardeaf/redelete", branch = "master" }
