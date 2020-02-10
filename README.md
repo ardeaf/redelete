@@ -1,6 +1,23 @@
 # Redelete removes all of your reddit comments and submissions. 
 [![Build Status](https://travis-ci.com/ardeaf/redelete.svg?branch=master)](https://travis-ci.com/ardeaf/redelete)
 
+### Installation
+Archlinux:
+```
+# Manually from the AUR
+git clone https://aur.archlinux.org/redelete.git && cd redelete
+makepkg -si
+
+# Prebuilt binary
+git clone https://aur.archlinux.org/redelete-bin.git && cd redelete-bin
+makepkg -si
+```
+
+Everyone else:
+```
+cargo install redelete
+```
+
 ### Quickstart
 ```
 // authorize your reddit account with this app:
