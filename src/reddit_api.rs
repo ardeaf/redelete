@@ -265,8 +265,8 @@ impl RedditClient {
         Ok(di)
     }
 
-    pub async fn delete(self: &Self, fullname: &str) -> Result<()> {
-        let params = vec![("id", fullname)];
+    pub async fn delete(self: &Self, fullname: String) -> Result<()> {
+        let params = vec![("id", &*fullname)];
         let _resp = self.post(DELETE_ENDPOINT, &params).await?;
         println!("Deleted!");
         Ok(())
@@ -677,7 +677,7 @@ mod tests {
         let _m = mock("POST", DELETE_ENDPOINT).with_status(204).create();
         let res = Runtime::new()
             .unwrap()
-            .block_on(async { client.delete("t1_a").await.unwrap() });
+            .block_on(async { client.delete(String::from("t1_a")).await.unwrap() });
         assert_eq!((), res)
     }
 }

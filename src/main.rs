@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate clap;
 
+use futures::future::join_all;
 use futures::try_join;
 use std::result;
 use tokio;
@@ -42,6 +43,7 @@ async fn run(username: String, dry: bool) -> Result<()> {
 
     let (_, ai) = config::get_config_and_account_info(&client.username)?;
     let mut printed = false;
+    let mut to_delete: Vec<String> = Vec::new();
     for p in all {
         if check_should_delete(&ai, &p) {
             if !printed {
@@ -79,14 +81,24 @@ async fn run(username: String, dry: bool) -> Result<()> {
                     }
                 }
             }
-            println!("");
-            if !dry {
-                client.delete(&p.name).await?;
-            }
+            let str_name = String::from(p.name.as_str());
+            to_delete.push(str_name);
         }
     }
     if !printed {
-        println!("No comments or submissions to delete.")
+        println!("No comments or submissions to delete.");
+    } else {
+        println!("Getting ready to delete {} posts.", to_delete.len());
+    }
+    if !dry {
+        let mut tasks = Vec::new();
+        for name in to_delete.into_iter() {
+            tasks.push(client.delete(name))
+        }
+        let x = join_all(tasks).await;
+        println!("Deleted {} posts.", x.len())
+    } else {
+        println!("Dry run flag present. Skipping delete operation.");
     }
     Ok(())
 }
