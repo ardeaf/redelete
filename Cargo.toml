@@ -15,6 +15,7 @@ travis-ci = { repository = "ardeaf/redelete", branch = "master" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
+openssl = { version = '0.10', features = ["vendored"] }
 tiny_http = "0.6.2"
 reqwest = { version = "0.10.1", features = ["json", "stream"] }
 tokio = { version = "^0.2.10", features = ["full"] }
